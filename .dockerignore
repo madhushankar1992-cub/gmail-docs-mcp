@@ -1,0 +1,13 @@
+.venv
+.env
+token.json
+credentials.json
+client_secret_*.json
+tests
+Docs
+examples
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+.git

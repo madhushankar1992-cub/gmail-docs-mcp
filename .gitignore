@@ -1,0 +1,20 @@
+# Secrets - never commit
+credentials.json
+token.json
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+client_secret_*.json
+
+.vercel
+.env*
+!.env.example

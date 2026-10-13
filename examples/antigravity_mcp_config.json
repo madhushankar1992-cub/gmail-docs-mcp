@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "gmail-docs": {
+      "command": "C:/AI NXT LEAP/AI AGENT MCP SERVER/.venv/Scripts/python.exe",
+      "args": ["-m", "gmail_docs_mcp"],
+      "env": {
+        "GOOGLE_CREDENTIALS_PATH": "C:/AI NXT LEAP/AI AGENT MCP SERVER/credentials.json",
+        "GOOGLE_TOKEN_PATH": "C:/AI NXT LEAP/AI AGENT MCP SERVER/token.json"
+      }
+    }
+  }
+}
