@@ -23,7 +23,6 @@ class FakeServices:
     def __init__(self) -> None:
         self.gmail_client = MagicMock(name="gmail")
         self.docs_client = MagicMock(name="docs")
-        self.drive_client = MagicMock(name="drive")
 
     @property
     def gmail_send(self) -> MagicMock:
@@ -48,10 +47,6 @@ class FakeServices:
     @contextmanager
     def docs(self):
         yield self.docs_client
-
-    @contextmanager
-    def drive(self):
-        yield self.drive_client
 
 
 @pytest.fixture

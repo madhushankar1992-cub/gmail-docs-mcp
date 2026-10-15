@@ -17,19 +17,6 @@ HEADERS = {
     "Content-Type": "application/json",
 }
 
-EXPECTED_TOOLS = {
-    "send_email",
-    "append_to_google_doc",
-    "docs_create_document",
-    "docs_write_content",
-    "docs_get_document",
-    "docs_find_by_marker",
-    "docs_get_page_count",
-    "gmail_create_draft",
-    "gmail_get_draft",
-    "gmail_find_drafts",
-}
-
 
 @pytest.fixture
 def client(monkeypatch, tmp_path):
@@ -56,7 +43,7 @@ def test_lists_tools_statelessly_on_any_path(client):
         resp = _rpc(client, "tools/list", path=path)
         assert resp.status_code == 200, resp.text
         names = {t["name"] for t in resp.json()["result"]["tools"]}
-        assert names == EXPECTED_TOOLS
+        assert names == {"send_email", "append_to_google_doc"}
 
 
 def test_tool_call_without_prior_session(client):

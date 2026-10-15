@@ -24,9 +24,7 @@ def _write_token(path, **overrides):
 def test_scopes_are_least_privilege():
     assert auth.SCOPES == [
         "https://www.googleapis.com/auth/gmail.send",
-        "https://www.googleapis.com/auth/gmail.compose",
         "https://www.googleapis.com/auth/documents",
-        "https://www.googleapis.com/auth/drive.file",
     ]
 
 
