@@ -13,6 +13,27 @@ from tests.conftest import make_http_error
 DOC_ID = "1AbCdEfGhIjKlMnOpQrStUvWxYz0123456789_-aB"
 FORBIDDEN_SCHEMA_KEYS = {"anyOf", "oneOf", "allOf", "$ref", "$defs", "not"}
 
+READ_ONLY_TOOLS = {
+    "docs_get_document",
+    "docs_find_by_marker",
+    "docs_get_page_count",
+    "gmail_get_draft",
+    "gmail_find_drafts",
+}
+
+EXPECTED_TOOLS = {
+    "send_email",
+    "append_to_google_doc",
+    "docs_create_document",
+    "docs_write_content",
+    "docs_get_document",
+    "docs_find_by_marker",
+    "docs_get_page_count",
+    "gmail_create_draft",
+    "gmail_get_draft",
+    "gmail_find_drafts",
+}
+
 
 def _keys(node):
     if isinstance(node, dict):
@@ -32,7 +53,7 @@ def connect(settings, services=None):
 async def test_tools_are_listed_with_portable_schemas_and_annotations(settings, services):
     async with connect(settings, services) as c:
         tools = {t.name: t for t in (await c.list_tools()).tools}
-        assert set(tools) == {"send_email", "append_to_google_doc"}
+        assert set(tools) == EXPECTED_TOOLS
 
         for tool in tools.values():
             assert tool.description and len(tool.name) < 64
@@ -41,12 +62,11 @@ async def test_tools_are_listed_with_portable_schemas_and_annotations(settings, 
             for name, prop in tool.input_schema["properties"].items():
                 assert prop.get("description"), f"{tool.name}.{name} lacks a description"
             a = tool.annotations
-            assert (a.read_only_hint, a.destructive_hint, a.idempotent_hint, a.open_world_hint) == (
-                False,
-                False,
-                False,
-                True,
-            )
+            assert a.destructive_hint is False and a.open_world_hint is True
+            if tool.name in READ_ONLY_TOOLS:
+                assert a.read_only_hint is True
+            elif tool.name in ("send_email", "append_to_google_doc", "gmail_create_draft"):
+                assert (a.read_only_hint, a.idempotent_hint) == (False, False)
 
         assert tools["send_email"].input_schema["required"] == ["to", "subject", "body"]
         assert tools["append_to_google_doc"].input_schema["required"] == ["document", "text"]

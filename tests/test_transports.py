@@ -18,6 +18,19 @@ from mcp.shared._httpx_utils import create_mcp_http_client
 
 TOKEN = "test-bearer-token"
 
+EXPECTED_TOOLS = {
+    "send_email",
+    "append_to_google_doc",
+    "docs_create_document",
+    "docs_write_content",
+    "docs_get_document",
+    "docs_find_by_marker",
+    "docs_get_page_count",
+    "gmail_create_draft",
+    "gmail_get_draft",
+    "gmail_find_drafts",
+}
+
 
 def _env(tmp_path: Path, **extra: str) -> dict[str, str]:
     env = dict(os.environ)
@@ -47,7 +60,7 @@ async def test_stdio_subprocess_speaks_clean_protocol(tmp_path):
     )
     async with Client(params) as c:
         names = {t.name for t in (await c.list_tools()).tools}
-        assert names == {"send_email", "append_to_google_doc"}
+        assert names == EXPECTED_TOOLS
 
         dry = await c.call_tool(
             "send_email",
@@ -102,7 +115,7 @@ async def test_http_with_token_serves_tools(http_server):
     async with create_mcp_http_client(headers={"Authorization": f"Bearer {TOKEN}"}) as http:
         async with Client(streamable_http_client(http_server, http_client=http)) as c:
             names = {t.name for t in (await c.list_tools()).tools}
-            assert names == {"send_email", "append_to_google_doc"}
+            assert names == EXPECTED_TOOLS
             result = await c.call_tool(
                 "send_email",
                 {"to": ["a@example.com"], "subject": "Hi", "body": "Hello", "dry_run": True},

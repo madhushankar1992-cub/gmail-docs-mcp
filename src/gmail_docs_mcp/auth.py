@@ -13,10 +13,13 @@ from typing import Any
 from .config import Settings
 from .errors import AUTH_REQUIRED, ToolFailure
 
-# Least privilege: send-only Gmail access plus Docs editing. Nothing broader.
+# Least privilege: Gmail send + draft management, Docs editing, and Drive access limited to files
+# this app created (used to tag and find Pulse documents). Nothing broader.
 GMAIL_SEND_SCOPE = "https://www.googleapis.com/auth/gmail.send"
+GMAIL_COMPOSE_SCOPE = "https://www.googleapis.com/auth/gmail.compose"
 DOCS_SCOPE = "https://www.googleapis.com/auth/documents"
-SCOPES = [GMAIL_SEND_SCOPE, DOCS_SCOPE]
+DRIVE_FILE_SCOPE = "https://www.googleapis.com/auth/drive.file"
+SCOPES = [GMAIL_SEND_SCOPE, GMAIL_COMPOSE_SCOPE, DOCS_SCOPE, DRIVE_FILE_SCOPE]
 
 
 def _reauth_hint(settings: Settings) -> str:
@@ -112,7 +115,7 @@ def run_auth_flow(settings: Settings) -> Path:
         access_type="offline",
         prompt="consent",
         authorization_prompt_message=(
-            "Opening your browser to authorize Gmail send + Docs. "
+            "Opening your browser to authorize Gmail, Docs and app-created Drive files. "
             "If nothing opens, visit this URL:\n{url}\n"
         ),
         success_message="Authorization complete. You can close this tab.",
@@ -130,6 +133,7 @@ class GoogleServices:
         self._creds: Any = None
         self._gmail: Any = None
         self._docs: Any = None
+        self._drive: Any = None
 
     def _authorized_http(self) -> Any:
         import google_auth_httplib2
@@ -164,3 +168,11 @@ class GoogleServices:
             if self._docs is None:
                 self._docs = self._build("docs", "v1")
             yield self._docs
+
+    @contextmanager
+    def drive(self) -> Iterator[Any]:
+        with self._lock:
+            self._current_credentials()
+            if self._drive is None:
+                self._drive = self._build("drive", "v3")
+            yield self._drive

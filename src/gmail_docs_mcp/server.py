@@ -12,7 +12,7 @@ from mcp.server.mcpserver import MCPServer
 from mcp.types import CallToolResult, TextContent, ToolAnnotations
 from pydantic import Field
 
-from . import __version__
+from . import __version__, pulse_docs, pulse_drafts
 from .auth import GoogleServices
 from .config import Settings
 from .docs_service import append_to_document
@@ -27,7 +27,9 @@ INSTRUCTIONS = (
     "(send_email) and append text to the end of an existing Google Doc "
     "(append_to_google_doc). Both actions are real and cannot be undone by this server; "
     "confirm recipients and content with the user when in doubt, and use send_email with "
-    "dry_run=true to validate a message without sending it."
+    "dry_run=true to validate a message without sending it. The docs_* and gmail_* tools "
+    "publish a Pulse note: create/fill/read/find a tagged Google Doc and create/read/find an "
+    "UNSENT Gmail draft. They never send mail."
 )
 
 SEND_EMAIL_DESCRIPTION = (
@@ -200,6 +202,154 @@ def create_server(settings: Settings, services: Any | None = None) -> MCPServer:
                 add_leading_newline=add_leading_newline,
             ),
             log_keys=("document_id", "characters_appended"),
+        )
+
+    def _ann(title: str, *, read_only: bool, idempotent: bool = False) -> ToolAnnotations:
+        return ToolAnnotations(
+            title=title,
+            read_only_hint=read_only,
+            destructive_hint=False,
+            idempotent_hint=read_only or idempotent,
+            open_world_hint=True,
+        )
+
+    @mcp.tool(
+        name="docs_create_document",
+        title="Create a tagged Google Doc",
+        description="Create an empty Google Doc tagged with an idempotency marker. "
+        "Returns JSON: document_id, url.",
+        annotations=_ann("Create a tagged Google Doc", read_only=False),
+    )
+    async def docs_create_document(
+        title: Annotated[str, Field(description="Document title (single line).")],
+        marker: Annotated[
+            str, Field(description="Idempotency marker, e.g. 'groww-pulse:0123456789abcdef'.")
+        ],
+    ) -> CallToolResult:
+        return await _run_tool(
+            "docs_create_document",
+            lambda: pulse_docs.create_document(services, settings, title=title, marker=marker),
+            log_keys=("document_id",),
+        )
+
+    @mcp.tool(
+        name="docs_write_content",
+        title="Replace a Google Doc body",
+        description="Replace the whole body of a Google Doc with markdown (#/##/### headings, "
+        "'- ' bullets, '1. ' numbered items, paragraphs). Returns JSON: document_id, revision_id.",
+        annotations=_ann("Replace a Google Doc body", read_only=False, idempotent=True),
+    )
+    async def docs_write_content(
+        document_id: Annotated[str, Field(description="Google Doc ID or full URL.")],
+        content_markdown: Annotated[str, Field(description="Markdown content for the body.")],
+    ) -> CallToolResult:
+        return await _run_tool(
+            "docs_write_content",
+            lambda: pulse_docs.write_content(
+                services, settings, document_id=document_id, content_markdown=content_markdown
+            ),
+            log_keys=("document_id",),
+        )
+
+    @mcp.tool(
+        name="docs_get_document",
+        title="Read a Google Doc",
+        description="Read a Google Doc back as plain text. "
+        "Returns JSON: document_id, title, text, url, revision_id.",
+        annotations=_ann("Read a Google Doc", read_only=True),
+    )
+    async def docs_get_document(
+        document_id: Annotated[str, Field(description="Google Doc ID or full URL.")],
+    ) -> CallToolResult:
+        return await _run_tool(
+            "docs_get_document",
+            lambda: pulse_docs.get_document(services, settings, document_id=document_id),
+            log_keys=("document_id",),
+        )
+
+    @mcp.tool(
+        name="docs_find_by_marker",
+        title="Find Google Docs by marker",
+        description="Find Docs created by docs_create_document with the given marker. "
+        "Returns JSON: documents [{document_id, title, url}].",
+        annotations=_ann("Find Google Docs by marker", read_only=True),
+    )
+    async def docs_find_by_marker(
+        marker: Annotated[str, Field(description="Idempotency marker used at creation.")],
+    ) -> CallToolResult:
+        return await _run_tool(
+            "docs_find_by_marker",
+            lambda: pulse_docs.find_by_marker(services, settings, marker=marker),
+            log_keys=(),
+        )
+
+    @mcp.tool(
+        name="docs_get_page_count",
+        title="Count pages of a Google Doc",
+        description="Export a Google Doc to PDF and return its page count, for one-page layout "
+        "checks. Returns JSON: document_id, page_count.",
+        annotations=_ann("Count pages of a Google Doc", read_only=True),
+    )
+    async def docs_get_page_count(
+        document_id: Annotated[str, Field(description="Google Doc ID or full URL.")],
+    ) -> CallToolResult:
+        return await _run_tool(
+            "docs_get_page_count",
+            lambda: pulse_docs.get_page_count(services, settings, document_id=document_id),
+            log_keys=("document_id", "page_count"),
+        )
+
+    @mcp.tool(
+        name="gmail_create_draft",
+        title="Create an unsent Gmail draft",
+        description="Create an UNSENT plain-text Gmail draft tagged with a marker. This never "
+        "sends the message. Returns JSON: draft_id, message_id.",
+        annotations=_ann("Create an unsent Gmail draft", read_only=False),
+    )
+    async def gmail_create_draft(
+        to: Annotated[str, Field(description="Single recipient email address.")],
+        subject: Annotated[str, Field(description="Subject line (single line).")],
+        body_text: Annotated[str, Field(description="Plain-text body.")],
+        marker: Annotated[str, Field(description="Idempotency marker for this draft.")],
+    ) -> CallToolResult:
+        return await _run_tool(
+            "gmail_create_draft",
+            lambda: pulse_drafts.create_draft(
+                services, settings, to=to, subject=subject, body_text=body_text, marker=marker
+            ),
+            log_keys=("draft_id",),
+        )
+
+    @mcp.tool(
+        name="gmail_get_draft",
+        title="Read a Gmail draft",
+        description="Read a Gmail draft back. "
+        "Returns JSON: draft_id, to, subject, body_text, is_draft.",
+        annotations=_ann("Read a Gmail draft", read_only=True),
+    )
+    async def gmail_get_draft(
+        draft_id: Annotated[str, Field(description="Gmail draft ID.")],
+    ) -> CallToolResult:
+        return await _run_tool(
+            "gmail_get_draft",
+            lambda: pulse_drafts.get_draft(services, settings, draft_id=draft_id),
+            log_keys=("draft_id",),
+        )
+
+    @mcp.tool(
+        name="gmail_find_drafts",
+        title="Find Gmail drafts by marker",
+        description="Find recent Gmail drafts created with the given marker. "
+        "Returns JSON: drafts [{draft_id, subject}].",
+        annotations=_ann("Find Gmail drafts by marker", read_only=True),
+    )
+    async def gmail_find_drafts(
+        marker: Annotated[str, Field(description="Idempotency marker used at creation.")],
+    ) -> CallToolResult:
+        return await _run_tool(
+            "gmail_find_drafts",
+            lambda: pulse_drafts.find_drafts(services, settings, marker=marker),
+            log_keys=(),
         )
 
     return mcp

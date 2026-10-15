@@ -7,6 +7,8 @@ MCP-capable agent (Claude, ChatGPT, Gemini, Cursor, Antigravity, ...) two tools:
 |------|--------------|
 | `send_email` | Sends a plain-text or HTML email from your Gmail account (`dry_run` supported). |
 | `append_to_google_doc` | Appends text to the end of an existing Google Doc. Append-only. |
+| `docs_create_document`, `docs_write_content`, `docs_get_document`, `docs_find_by_marker`, `docs_get_page_count` | Pulse publication: create a marker-tagged Doc, replace its body from markdown, read it back, find it by marker, count its pages. |
+| `gmail_create_draft`, `gmail_get_draft`, `gmail_find_drafts` | Pulse publication: create, read back and find **unsent** drafts. Never sends. |
 
 Spec: [Docs/problemStatement.md](Docs/problemStatement.md).
 
@@ -43,7 +45,7 @@ python -m venv .venv
 > refresh tokens after **7 days**. When that happens tools return `AUTH_REQUIRED`; just re-run
 > the `auth` command. Publishing the app to production removes the limit.
 
-Scopes requested (and nothing else): `gmail.send` and `documents`.
+Scopes requested (and nothing else): `gmail.send`, `gmail.compose`, `documents` and `drive.file` (only files this app created). The Drive API must be enabled in the Cloud project. After upgrading, re-run the `auth` command to grant the new scopes.
 
 ## 3. Run
 
