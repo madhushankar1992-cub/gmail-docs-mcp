@@ -14,8 +14,7 @@ from .config import Settings
 
 LOCAL_HOSTS = ("127.0.0.1", "localhost", "[::1]")
 
-# Unauthenticated landing/health page so a browser visit doesn't show a bare 401. No secrets.
-PUBLIC_PATHS = ("/", "/health")
+# Unauthenticated status shown to browsers so a visit doesn't show a bare 401. No secrets.
 PUBLIC_STATUS = {
     "status": "ok",
     "service": "gmail-docs-mcp",
@@ -38,11 +37,19 @@ class BearerAuthMiddleware:
             await self.app(scope, receive, send)
             return
 
-        if scope["method"] in ("GET", "HEAD") and scope["path"] in PUBLIC_PATHS:
+        headers = Headers(scope=scope)
+        # Browsers (Accept: text/html) get a status page instead of a bare 401. This keys off the
+        # Accept header, not the path, because Vercel rewrites every path to one function. MCP
+        # clients ask for JSON / event streams, so they never match.
+        if (
+            scope["method"] in ("GET", "HEAD")
+            and "authorization" not in headers
+            and "text/html" in headers.get("accept", "")
+        ):
             await JSONResponse(PUBLIC_STATUS)(scope, receive, send)
             return
 
-        header = Headers(scope=scope).get("authorization", "")
+        header = headers.get("authorization", "")
         scheme, _, supplied = header.partition(" ")
         ok = scheme.lower() == "bearer" and hmac.compare_digest(
             supplied.strip().encode("utf-8"), self._token

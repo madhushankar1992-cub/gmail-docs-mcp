@@ -30,13 +30,19 @@ def test_accepts_correct_token():
     assert resp.status_code == 200 and resp.text == "ok"
 
 
-def test_health_pages_are_public_but_mcp_stays_protected():
+def test_browser_visit_gets_status_page_but_mcp_clients_stay_protected():
     client = TestClient(_app())
-    for path in ("/", "/health"):
-        resp = client.get(path)
+    html = {"Accept": "text/html,application/xhtml+xml"}
+    for path in ("/", "/health", "/mcp"):
+        resp = client.get(path, headers=html)
         assert resp.status_code == 200 and resp.json()["status"] == "ok"
-    assert client.post("/health").status_code == 401
+    sse = {"Accept": "text/event-stream"}
+    assert client.get("/mcp", headers=sse).status_code == 401
     assert client.get("/mcp").status_code == 401
+    assert client.post("/mcp", headers=html).status_code == 401
+    # a wrong token is still rejected even from a "browser"
+    wrong = {**html, "Authorization": "Bearer wrong"}
+    assert client.get("/mcp", headers=wrong).status_code == 401
 
 
 def test_empty_token_is_refused():
