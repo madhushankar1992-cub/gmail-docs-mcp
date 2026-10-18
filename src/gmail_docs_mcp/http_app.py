@@ -14,6 +14,15 @@ from .config import Settings
 
 LOCAL_HOSTS = ("127.0.0.1", "localhost", "[::1]")
 
+# Unauthenticated landing/health page so a browser visit doesn't show a bare 401. No secrets.
+PUBLIC_PATHS = ("/", "/health")
+PUBLIC_STATUS = {
+    "status": "ok",
+    "service": "gmail-docs-mcp",
+    "mcp_endpoint": "/mcp",
+    "auth": "Authorization: Bearer <token> required on /mcp",
+}
+
 
 class BearerAuthMiddleware:
     """Reject every HTTP request that lacks ``Authorization: Bearer <token>``."""
@@ -27,6 +36,10 @@ class BearerAuthMiddleware:
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":  # lifespan events
             await self.app(scope, receive, send)
+            return
+
+        if scope["method"] in ("GET", "HEAD") and scope["path"] in PUBLIC_PATHS:
+            await JSONResponse(PUBLIC_STATUS)(scope, receive, send)
             return
 
         header = Headers(scope=scope).get("authorization", "")

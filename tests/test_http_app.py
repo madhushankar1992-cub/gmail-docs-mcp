@@ -30,6 +30,15 @@ def test_accepts_correct_token():
     assert resp.status_code == 200 and resp.text == "ok"
 
 
+def test_health_pages_are_public_but_mcp_stays_protected():
+    client = TestClient(_app())
+    for path in ("/", "/health"):
+        resp = client.get(path)
+        assert resp.status_code == 200 and resp.json()["status"] == "ok"
+    assert client.post("/health").status_code == 401
+    assert client.get("/mcp").status_code == 401
+
+
 def test_empty_token_is_refused():
     with pytest.raises(ValueError):
         BearerAuthMiddleware(Starlette(), "")
