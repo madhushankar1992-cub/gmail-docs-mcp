@@ -84,6 +84,23 @@ def test_expired_token_is_refreshed_and_saved(settings, monkeypatch):
     assert json.loads(settings.token_path.read_text())["token"] == "ya29.new"
 
 
+def test_refresh_survives_read_only_filesystem(settings, monkeypatch):
+    from google.oauth2.credentials import Credentials
+
+    _write_token(settings.token_path, expiry="2000-01-01T00:00:00Z")
+
+    def fake_refresh(self, request):
+        self.token = "ya29.new"
+        self.expiry = datetime.datetime(2999, 1, 1)
+
+    def read_only(path, creds):
+        raise OSError(30, "Read-only file system")
+
+    monkeypatch.setattr(Credentials, "refresh", fake_refresh)
+    monkeypatch.setattr(auth, "_save_token", read_only)
+    assert auth.load_credentials(settings).token == "ya29.new"
+
+
 def test_token_from_env_json_when_no_file(settings):
     import dataclasses
 

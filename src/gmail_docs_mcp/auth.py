@@ -73,7 +73,11 @@ def load_credentials(settings: Settings) -> Any:
                 f"Google authorization expired or was revoked. {_reauth_hint(settings)}",
             ) from exc
         if from_file:  # env-sourced tokens stay in memory; the refresh token itself is unchanged
-            _save_token(token_path, creds)
+            try:
+                _save_token(token_path, creds)
+            except OSError:
+                # Read-only filesystem (serverless): the refreshed token still works in memory.
+                pass
         return creds
 
     raise ToolFailure(

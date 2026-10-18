@@ -64,6 +64,9 @@ async def _run_tool(
                 "tool": tool,
                 "error_code": failure.code,
                 "exc_type": type(exc).__name__,
+                # OS-level errors (missing file, DNS, TLS) carry no user data and are otherwise
+                # indistinguishable once mapped to UPSTREAM_ERROR.
+                "exc_detail": str(exc)[:200] if isinstance(exc, OSError) else None,
                 "duration_ms": round((time.perf_counter() - started) * 1000),
             },
         )
