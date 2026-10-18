@@ -82,6 +82,9 @@ A Vercel deployment is live at `https://gmail-docs-mcp.vercel.app/mcp` (stateles
 token required). See [Docs/deployment-plan.md](Docs/deployment-plan.md). The entry point is
 [api/index.py](api/index.py); a Railway-ready [Dockerfile](Dockerfile) is also included.
 
+Opening the deployment URL in a browser shows a small public status page (`{"status":"ok", ...}`).
+MCP clients must still send `Authorization: Bearer <MCP_AUTH_TOKEN>`; without it `/mcp` returns 401.
+
 ### ChatGPT / hosted agents
 
 These need a remote server: run the HTTP transport and expose it at a public **HTTPS** URL
